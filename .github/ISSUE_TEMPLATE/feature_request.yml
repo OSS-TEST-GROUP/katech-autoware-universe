@@ -1,0 +1,25 @@
+name: Feature request
+description: Autoware Partition 개선 사항을 제안합니다.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경
+      description: 개선이 필요한 이유와 현재 불편한 점을 작성해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 제안 내용
+      description: 원하는 동작이나 변경 사항을 작성해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 영향 범위
+      description: 관련 파티션, 아키텍처 또는 실행 환경을 작성해 주세요.

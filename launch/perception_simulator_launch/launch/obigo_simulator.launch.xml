@@ -1,0 +1,109 @@
+<launch>
+  <!-- Parameter files -->
+  <arg name="fault_injection_param_path"/>
+  <arg name="obstacle_segmentation_ground_segmentation_elevation_map_param_path"/>
+  <arg name="laserscan_based_occupancy_grid_map_param_path"/>
+  <arg name="occupancy_grid_map_updater"/>
+  <arg name="occupancy_grid_map_updater_param_path"/>
+
+  <arg name="localization_error_monitor_param_path"/>
+  <arg name="ekf_localizer_param_path"/>
+  <arg name="stop_filter_param_path"/>
+  <arg name="pose_initializer_param_path"/>
+  <arg name="twist2accel_param_path"/>
+
+  <arg name="launch_simulator_perception_modules" default="true"/>
+  <arg name="launch_dummy_perception"/>
+  <arg name="launch_dummy_vehicle"/>
+  <arg
+    name="localization_sim_mode"
+    description="Select localization mode. Options are 'none', 'api' or 'pose_twist_estimator'. 'pose_twist_estimator' starts most of the localization modules except for the ndt_scan_matcher. 'api' starts an external API for initial position estimation. 'none' does not start any localization-related process."
+  />
+  <arg name="launch_dummy_doors"/>
+  <arg name="launch_scenario_simulator_v2_adapter"/>
+  <arg name="vehicle_info_param_file"/>
+  <arg name="raw_vehicle_cmd_converter_param_path"/>
+
+  <arg name="perception/enable_detection_failure" default="true" description="enable to simulate detection failure when using dummy perception"/>
+  <arg name="perception/enable_object_recognition" default="false" description="enable object recognition"/>
+  <arg name="perception/enable_elevation_map" default="false" description="enable elevation map loader"/>
+  <arg name="perception/enable_traffic_light" default="true" description="enable traffic light"/>
+  <arg name="fusion_only" default="true" description="enable only camera and V2X fusion when enabling traffic light"/>
+  <arg name="perception/use_base_link_z" default="true" description="dummy perception uses base_link z axis coordinate if it is true"/>
+  <arg name="sensing/visible_range" default="300.0" description="visible range when using dummy perception"/>
+  <arg name="use_perception_online_evaluator" default="false" description="use perception online evaluator"/>
+
+  <arg name="vehicle_model" description="vehicle model name"/>
+  <arg name="initial_engage_state" default="true" description="/vehicle/engage state after starting Autoware"/>
+
+  <let name="vehicle_model_pkg" value="$(find-pkg-share $(var vehicle_model)_description)"/>
+
+  <group if="$(var launch_simulator_perception_modules)">
+    <group if="$(var scenario_simulation)">
+      <include file="$(find-pkg-share autoware_fault_injection)/launch/fault_injection.launch.xml">
+        <arg name="config_file" value="$(var fault_injection_param_path)"/>
+      </include>
+    </group>
+
+    <!-- Dummy Perception -->
+    <group if="$(var launch_dummy_perception)">
+      <include file="$(find-pkg-share autoware_dummy_perception_publisher)/launch/obigo_dummy_perception_publisher.launch.xml">
+        <arg name="real" value="$(var perception/enable_detection_failure)"/>
+        <arg name="use_object_recognition" value="$(var perception/enable_object_recognition)"/>
+        <arg name="use_base_link_z" value="$(var perception/use_base_link_z)"/>
+        <arg name="visible_range" value="$(var sensing/visible_range)"/>
+      </include>
+    </group>
+
+
+
+    <!-- perception module -->
+    <group>
+      <push-ros-namespace namespace="perception"/>
+
+
+      <!-- publish empty objects instead of object recognition module -->
+      <group unless="$(var perception/enable_object_recognition)">
+        <push-ros-namespace namespace="object_recognition"/>
+        <node pkg="autoware_dummy_perception_publisher" exec="empty_objects_publisher" name="empty_objects_publisher" output="screen">
+          <remap from="~/output/objects" to="/perception/object_recognition/objects"/>
+        </node>
+      </group>
+
+
+    </group>
+  </group>
+
+
+
+
+
+
+
+  <!-- Dummy doors -->
+  <group if="$(var launch_dummy_doors)">
+    <include file="$(find-pkg-share autoware_vehicle_door_simulator)/launch/vehicle_door_simulator.launch.xml"/>
+  </group>
+
+  <!-- Simulator Adapter -->
+  <group if="$(var launch_scenario_simulator_v2_adapter)">
+    <node exec="autoware_scenario_simulator_v2_adapter_node" pkg="autoware_scenario_simulator_v2_adapter" output="screen">
+      <param name="metric_topic_list" value="[/planning/planning_evaluator/metrics, /control/control_evaluator/metrics, /system/processing_time_checker/metrics]"/>
+    </node>
+  </group>
+
+  <!-- Simulator model -->
+  <group if="$(var launch_dummy_vehicle)">
+    <arg name="simulator_model" default="$(var vehicle_model_pkg)/config/simulator_model.param.yaml" description="path to the file of simulator model"/>
+    <!-- 'pose_only' mode publishes the pose topic as an alternative to ndt_localizer. 'full_motion' mode publishes the odometry and acceleration topics as an alternative to localization modules. -->
+    <let name="motion_publish_mode" value="pose_only" if="$(eval '&quot;$(var localization_sim_mode)&quot;==&quot;pose_twist_estimator&quot;')"/>
+    <let name="motion_publish_mode" value="full_motion" unless="$(eval '&quot;$(var localization_sim_mode)&quot;==&quot;pose_twist_estimator&quot;')"/>
+    <include file="$(find-pkg-share autoware_simple_planning_simulator)/launch/simple_planning_simulator.launch.py">
+      <arg name="vehicle_info_param_file" value="$(var vehicle_info_param_file)"/>
+      <arg name="simulator_model_param_file" value="$(var simulator_model)"/>
+      <arg name="initial_engage_state" value="$(var initial_engage_state)"/>
+      <arg name="raw_vehicle_cmd_converter_param_path" value="$(var raw_vehicle_cmd_converter_param_path)"/>
+      <arg name="motion_publish_mode" value="$(var motion_publish_mode)"/>
+    </include>
+  </group>
+</launch>
