@@ -19,9 +19,9 @@
       "type": "sensor.lidar.ray_cast",
       "id": "top",
       "spawn_point": {
-        "x": 0.0,
+        "x": -0.36,
         "y": 0.0,
-        "z": 3.1,
+        "z": 1.84,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0
