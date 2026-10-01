@@ -91,8 +91,16 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
     use_separate_inference_processes = (
         LaunchConfiguration("use_separate_inference_processes").perform(context).lower() == "true"
     )
+    enable_fine_detection = (
+        LaunchConfiguration("enable_fine_detection").perform(context).lower() == "true"
+    )
     use_hsv_classifier = (
         LaunchConfiguration("use_hsv_classifier").perform(context).lower() == "true"
+    )
+    classifier_input_rois = (
+        camera_arguments["output/rois"]
+        if enable_fine_detection
+        else f"/perception/traffic_light_recognition/{namespace}/detection/expect/rois"
     )
 
     fine_detector_parameters = [fine_detector_model_param]
@@ -100,8 +108,8 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
     pedestrian_classifier_parameters = [pedestrian_traffic_light_classifier_model_param]
     if use_separate_inference_processes:
         fine_detector_parameters.append({"approximate_sync": True})
-        car_classifier_parameters.append({"approximate_sync": True})
-        pedestrian_classifier_parameters.append({"approximate_sync": True})
+        car_classifier_parameters.append({"approximate_sync": enable_fine_detection})
+        pedestrian_classifier_parameters.append({"approximate_sync": enable_fine_detection})
     if use_hsv_classifier:
         car_classifier_parameters.append({"classifier_type": 0})
         pedestrian_classifier_parameters.append({"classifier_type": 0})
@@ -148,7 +156,7 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
                 parameters=car_classifier_parameters,
                 remappings=[
                     ("~/input/image", camera_arguments["input/image"]),
-                    ("~/input/rois", camera_arguments["output/rois"]),
+                    ("~/input/rois", classifier_input_rois),
                     ("~/output/traffic_signals", "classified/car/traffic_signals"),
                 ],
                 extra_arguments=[
@@ -163,7 +171,7 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
                 parameters=pedestrian_classifier_parameters,
                 remappings=[
                     ("~/input/image", camera_arguments["input/image"]),
-                    ("~/input/rois", camera_arguments["output/rois"]),
+                    ("~/input/rois", classifier_input_rois),
                     ("~/output/traffic_signals", "classified/pedestrian/traffic_signals"),
                 ],
                 extra_arguments=[
@@ -240,7 +248,7 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
         parameters=car_classifier_parameters,
         remappings=[
             ("~/input/image", camera_arguments["input/image"]),
-            ("~/input/rois", camera_arguments["output/rois"]),
+            ("~/input/rois", classifier_input_rois),
             ("~/output/traffic_signals", "classified/car/traffic_signals"),
         ],
         output="both",
@@ -255,7 +263,7 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
         parameters=pedestrian_classifier_parameters,
         remappings=[
             ("~/input/image", camera_arguments["input/image"]),
-            ("~/input/rois", camera_arguments["output/rois"]),
+            ("~/input/rois", classifier_input_rois),
             ("~/output/traffic_signals", "classified/pedestrian/traffic_signals"),
         ],
         output="both",
