@@ -20,6 +20,9 @@
 #include "autoware_lanelet2_extension/utility/message_conversion.hpp"
 #include "autoware_lanelet2_extension/utility/query.hpp"
 
+#include <autoware_perception_msgs/msg/object_classification.hpp>
+#include <autoware_perception_msgs/msg/shape.hpp>
+
 #include <boost/geometry/algorithms/convex_hull.hpp>
 #include <boost/geometry/algorithms/disjoint.hpp>
 #include <boost/geometry/algorithms/intersects.hpp>
@@ -30,6 +33,8 @@
 #include <lanelet2_core/geometry/LaneletMap.h>
 #include <lanelet2_core/geometry/Polygon.h>
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -72,6 +77,14 @@ ObjectLaneletFilterNode::ObjectLaneletFilterNode(const rclcpp::NodeOptions & nod
     declare_parameter<double>("filter_settings.max_height_threshold");
   filter_settings_.min_height_threshold =
     declare_parameter<double>("filter_settings.min_height_threshold");
+  filter_settings_.tiny_unknown_filter =
+    declare_parameter<bool>("filter_settings.tiny_unknown_filter.enabled", false);
+  filter_settings_.tiny_unknown_max_footprint_short_side = declare_parameter<double>(
+    "filter_settings.tiny_unknown_filter.max_footprint_short_side", 0.0);
+  filter_settings_.tiny_unknown_max_footprint_long_side = declare_parameter<double>(
+    "filter_settings.tiny_unknown_filter.max_footprint_long_side", 0.0);
+  filter_settings_.tiny_unknown_max_speed =
+    declare_parameter<double>("filter_settings.tiny_unknown_filter.max_speed", 0.0);
 
   // Set publisher/subscriber
   map_sub_ = this->create_subscription<autoware_map_msgs::msg::LaneletMapBin>(
@@ -213,6 +226,10 @@ bool ObjectLaneletFilterNode::filterObject(
 {
   const auto & label = transformed_object.classification.front().label;
   if (filter_target_.isTarget(label)) {
+    if (isTinyStationaryUnknown(transformed_object)) {
+      return false;
+    }
+
     // no tree, then no intersection
     if (local_rtree.empty()) {
       return false;
@@ -254,6 +271,42 @@ bool ObjectLaneletFilterNode::filterObject(
     return true;
   }
   return false;
+}
+
+bool ObjectLaneletFilterNode::isTinyStationaryUnknown(
+  const autoware_perception_msgs::msg::DetectedObject & object) const
+{
+  using autoware_perception_msgs::msg::ObjectClassification;
+  using autoware_perception_msgs::msg::Shape;
+
+  if (
+    !filter_settings_.tiny_unknown_filter || object.classification.empty() ||
+    object.classification.front().label != ObjectClassification::UNKNOWN) {
+    return false;
+  }
+
+  const auto & linear = object.kinematics.twist_with_covariance.twist.linear;
+  if (std::hypot(linear.x, linear.y) > filter_settings_.tiny_unknown_max_speed) {
+    return false;
+  }
+
+  double footprint_x = object.shape.dimensions.x;
+  double footprint_y = object.shape.dimensions.y;
+  if (object.shape.type == Shape::POLYGON && !object.shape.footprint.points.empty()) {
+    const auto [min_x, max_x] = std::minmax_element(
+      object.shape.footprint.points.begin(), object.shape.footprint.points.end(),
+      [](const auto & lhs, const auto & rhs) { return lhs.x < rhs.x; });
+    const auto [min_y, max_y] = std::minmax_element(
+      object.shape.footprint.points.begin(), object.shape.footprint.points.end(),
+      [](const auto & lhs, const auto & rhs) { return lhs.y < rhs.y; });
+    footprint_x = max_x->x - min_x->x;
+    footprint_y = max_y->y - min_y->y;
+  }
+
+  const double short_side = std::min(footprint_x, footprint_y);
+  const double long_side = std::max(footprint_x, footprint_y);
+  return short_side < filter_settings_.tiny_unknown_max_footprint_short_side &&
+         long_side < filter_settings_.tiny_unknown_max_footprint_long_side;
 }
 
 geometry_msgs::msg::Polygon ObjectLaneletFilterNode::setFootprint(

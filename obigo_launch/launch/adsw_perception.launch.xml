@@ -20,6 +20,10 @@
   <arg name="launch_sensing" default="true" description="launch sensing"/>
   <arg name="launch_sensing_driver" default="true" description="launch sensing driver"/>
   <arg name="launch_localization" default="true" description="launch localization"/>
+  <arg name="localization_pose_source" default="ndt"/>
+  <arg name="localization_twist_source" default="gyro_odom"/>
+  <arg name="localization_gnss_enabled" default="true"/>
+  <arg name="use_carla_ground_truth_localization" default="false"/>
   <arg name="launch_perception" default="true" description="launch perception"/>
   <arg name="launch_planning" default="true" description="launch planning"/>
   <arg name="launch_control" default="true" description="launch control"/>
@@ -46,7 +50,12 @@
   <arg name="rviz_respawn" default="true"/>
   <!-- Perception -->
   <arg name="perception_mode" default="lidar" description="select perception mode. camera_lidar_radar_fusion, camera_lidar_fusion, lidar_radar_fusion, lidar, radar"/>
+  <arg name="lidar_detection_model" default="centerpoint" description="lidar object detector: centerpoint or transfusion"/>
   <arg name="traffic_light_recognition/enable_fine_detection" default="true" description="enable traffic light fine detection"/>
+  <arg name="traffic_light_recognition/enable_image_decompressor" default="true"/>
+  <arg name="traffic_light_recognition/use_separate_inference_processes" default="false"/>
+  <arg name="traffic_light_recognition/use_hsv_classifier" default="false"/>
+  <arg name="all_traffic_light_camera" default="[camera6, camera7]"/>
   <!-- Auto mode setting-->
   <arg name="enable_all_modules_auto_mode" default="false" description="enable all module's auto mode"/>
   <arg name="is_simulation" default="false" description="Autoware's behavior will change depending on whether this is a simulation or not."/>
@@ -83,13 +92,35 @@
     <include file="$(find-pkg-share obigo_launch)/launch/components/tier4_localization_component.launch.xml">
       <arg name="localization_pointcloud_container_name" value="$(var pointcloud_container_name)"/>
       <arg name="input_pointcloud" value="/sensing/lidar/concatenated/pointcloud"/>
+      <arg name="pose_source" value="$(var localization_pose_source)"/>
+      <arg name="twist_source" value="$(var localization_twist_source)"/>
+      <arg name="gnss_enabled" value="$(var localization_gnss_enabled)"/>
     </include>
+  </group>
+
+  <group if="$(var use_carla_ground_truth_localization)">
+    <node pkg="topic_tools" exec="relay" name="carla_ground_truth_pose_relay" output="screen">
+      <param name="input_topic" value="/sensing/gnss/pose_with_covariance"/>
+      <param name="output_topic" value="/localization/pose_estimator/pose_with_covariance"/>
+      <param name="type" value="geometry_msgs/msg/PoseWithCovarianceStamped"/>
+    </node>
+    <node pkg="topic_tools" exec="relay" name="carla_ground_truth_twist_relay" output="screen">
+      <param name="input_topic" value="/sensing/vehicle_velocity_converter/twist_with_covariance"/>
+      <param name="output_topic" value="/localization/twist_estimator/twist_with_covariance"/>
+      <param name="type" value="geometry_msgs/msg/TwistWithCovarianceStamped"/>
+    </node>
   </group>
 
   <!-- Perception -->
   <group if="$(var launch_perception)">
     <include file="$(find-pkg-share obigo_launch)/launch/components/tier4_perception_component.launch.xml">
       <arg name="data_path" value="$(var data_path)"/>
+      <arg name="lidar_detection_model" value="$(var lidar_detection_model)"/>
+      <arg name="all_traffic_light_camera" value="$(var all_traffic_light_camera)"/>
+      <arg name="traffic_light_recognition/enable_fine_detection" value="$(var traffic_light_recognition/enable_fine_detection)"/>
+      <arg name="traffic_light_recognition/enable_image_decompressor" value="$(var traffic_light_recognition/enable_image_decompressor)"/>
+      <arg name="traffic_light_recognition/use_separate_inference_processes" value="$(var traffic_light_recognition/use_separate_inference_processes)"/>
+      <arg name="traffic_light_recognition/use_hsv_classifier" value="$(var traffic_light_recognition/use_hsv_classifier)"/>
     </include>
   </group>
 

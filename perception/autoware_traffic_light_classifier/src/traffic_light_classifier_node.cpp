@@ -93,10 +93,10 @@ void TrafficLightClassifierNodelet::imageRoiCallback(
 
   cv_bridge::CvImagePtr cv_ptr;
   try {
-    cv_ptr = cv_bridge::toCvCopy(input_image_msg, sensor_msgs::image_encodings::RGB8);
+    cv_ptr = cv_bridge::toCvCopy(input_image_msg, sensor_msgs::image_encodings::BGR8);
   } catch (cv_bridge::Exception & e) {
     RCLCPP_ERROR(
-      this->get_logger(), "Could not convert from '%s' to 'rgb8'.",
+      this->get_logger(), "Could not convert from '%s' to 'bgr8'.",
       input_image_msg->encoding.c_str());
   }
 

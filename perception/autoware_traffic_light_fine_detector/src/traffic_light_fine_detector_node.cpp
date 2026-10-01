@@ -138,6 +138,7 @@ void TrafficLightFineDetectorNode::callback(
   const TrafficLightRoiArray::ConstSharedPtr rough_roi_msg,
   const TrafficLightRoiArray::ConstSharedPtr expect_roi_msg)
 {
+  RCLCPP_INFO_ONCE(this->get_logger(), "Fine detector synchronized callback entered");
   if (in_image_msg->width < 2 || in_image_msg->height < 2) {
     return;
   }
@@ -177,7 +178,9 @@ void TrafficLightFineDetectorNode::callback(
       }
     }
     if (static_cast<int>(rois.size()) == batch_size_) {
+      RCLCPP_INFO_ONCE(this->get_logger(), "Fine detector TensorRT inference starting");
       trt_yolox_->doMultiScaleInference(original_image, inference_results, rois);
+      RCLCPP_INFO_ONCE(this->get_logger(), "Fine detector TensorRT inference completed");
       for (size_t batch_i = 0; batch_i < true_batch_size; batch_i++) {
         for (const autoware::tensorrt_yolox::Object & detection : inference_results[batch_i]) {
           if (detection.score < score_thresh_) {

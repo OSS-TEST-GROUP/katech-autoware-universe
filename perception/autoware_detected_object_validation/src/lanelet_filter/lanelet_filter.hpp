@@ -101,6 +101,10 @@ private:
     bool use_height_threshold;
     double max_height_threshold = std::numeric_limits<double>::infinity();
     double min_height_threshold = -std::numeric_limits<double>::infinity();
+    bool tiny_unknown_filter;
+    double tiny_unknown_max_footprint_short_side;
+    double tiny_unknown_max_footprint_long_side;
+    double tiny_unknown_max_speed;
   } filter_settings_;
 
   bool filterObject(
@@ -120,6 +124,8 @@ private:
   bool isSameDirectionWithLanelets(
     const autoware_perception_msgs::msg::DetectedObject & object,
     const bgi::rtree<BoxAndLanelet, RtreeAlgo> & local_rtree);
+  bool isTinyStationaryUnknown(
+    const autoware_perception_msgs::msg::DetectedObject & object) const;
   geometry_msgs::msg::Polygon setFootprint(const autoware_perception_msgs::msg::DetectedObject &);
 
   lanelet::BasicPolygon2d getPolygon(const lanelet::ConstLanelet & lanelet);

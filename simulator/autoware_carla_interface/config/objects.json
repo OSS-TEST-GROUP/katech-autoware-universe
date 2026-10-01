@@ -28,10 +28,10 @@
       },
       "range": 100,
       "channels": 64,
-      "points_per_second": 300000,
+      "points_per_second": 1300000,
       "upper_fov": 10.0,
       "lower_fov": -30.0,
-      "rotation_frequency": 20,
+      "rotation_frequency": 10,
       "noise_stddev": 0.0
     },
     {

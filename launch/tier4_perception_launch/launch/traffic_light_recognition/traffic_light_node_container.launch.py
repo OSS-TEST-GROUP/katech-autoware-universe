@@ -24,8 +24,10 @@ from launch.actions import SetLaunchConfiguration
 from launch.conditions import IfCondition
 from launch.conditions import UnlessCondition
 from launch.substitutions import LaunchConfiguration
+from launch.substitutions import PythonExpression
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.actions import LoadComposableNodes
+from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from launch_ros.descriptions import ComposableNode
 from launch_ros.parameter_descriptions import ParameterFile
@@ -86,42 +88,30 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
         allow_substs=True,
     )
 
+    use_separate_inference_processes = (
+        LaunchConfiguration("use_separate_inference_processes").perform(context).lower() == "true"
+    )
+    use_hsv_classifier = (
+        LaunchConfiguration("use_hsv_classifier").perform(context).lower() == "true"
+    )
+
+    fine_detector_parameters = [fine_detector_model_param]
+    car_classifier_parameters = [car_traffic_light_classifier_model_param]
+    pedestrian_classifier_parameters = [pedestrian_traffic_light_classifier_model_param]
+    if use_separate_inference_processes:
+        fine_detector_parameters.append({"approximate_sync": True})
+        car_classifier_parameters.append({"approximate_sync": True})
+        pedestrian_classifier_parameters.append({"approximate_sync": True})
+    if use_hsv_classifier:
+        car_classifier_parameters.append({"classifier_type": 0})
+        pedestrian_classifier_parameters.append({"classifier_type": 0})
+
     container = ComposableNodeContainer(
         name="traffic_light_node_container",
         namespace="",
         package="rclcpp_components",
         executable=LaunchConfiguration("container_executable"),
         composable_node_descriptions=[
-            ComposableNode(
-                package="autoware_traffic_light_classifier",
-                plugin="autoware::traffic_light::TrafficLightClassifierNodelet",
-                name="car_traffic_light_classifier",
-                namespace="classification",
-                parameters=[car_traffic_light_classifier_model_param],
-                remappings=[
-                    ("~/input/image", camera_arguments["input/image"]),
-                    ("~/input/rois", camera_arguments["output/rois"]),
-                    ("~/output/traffic_signals", "classified/car/traffic_signals"),
-                ],
-                extra_arguments=[
-                    {"use_intra_process_comms": LaunchConfiguration("use_intra_process")}
-                ],
-            ),
-            ComposableNode(
-                package="autoware_traffic_light_classifier",
-                plugin="autoware::traffic_light::TrafficLightClassifierNodelet",
-                name="pedestrian_traffic_light_classifier",
-                namespace="classification",
-                parameters=[pedestrian_traffic_light_classifier_model_param],
-                remappings=[
-                    ("~/input/image", camera_arguments["input/image"]),
-                    ("~/input/rois", camera_arguments["output/rois"]),
-                    ("~/output/traffic_signals", "classified/pedestrian/traffic_signals"),
-                ],
-                extra_arguments=[
-                    {"use_intra_process_comms": LaunchConfiguration("use_intra_process")}
-                ],
-            ),
             ComposableNode(
                 package="autoware_traffic_light_visualization",
                 plugin="autoware::traffic_light::TrafficLightRoiVisualizerNode",
@@ -146,6 +136,43 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
             ),
         ],
         output="both",
+    )
+
+    classifier_loader = LoadComposableNodes(
+        composable_node_descriptions=[
+            ComposableNode(
+                package="autoware_traffic_light_classifier",
+                plugin="autoware::traffic_light::TrafficLightClassifierNodelet",
+                name="car_traffic_light_classifier",
+                namespace="classification",
+                parameters=car_classifier_parameters,
+                remappings=[
+                    ("~/input/image", camera_arguments["input/image"]),
+                    ("~/input/rois", camera_arguments["output/rois"]),
+                    ("~/output/traffic_signals", "classified/car/traffic_signals"),
+                ],
+                extra_arguments=[
+                    {"use_intra_process_comms": LaunchConfiguration("use_intra_process")}
+                ],
+            ),
+            ComposableNode(
+                package="autoware_traffic_light_classifier",
+                plugin="autoware::traffic_light::TrafficLightClassifierNodelet",
+                name="pedestrian_traffic_light_classifier",
+                namespace="classification",
+                parameters=pedestrian_classifier_parameters,
+                remappings=[
+                    ("~/input/image", camera_arguments["input/image"]),
+                    ("~/input/rois", camera_arguments["output/rois"]),
+                    ("~/output/traffic_signals", "classified/pedestrian/traffic_signals"),
+                ],
+                extra_arguments=[
+                    {"use_intra_process_comms": LaunchConfiguration("use_intra_process")}
+                ],
+            ),
+        ],
+        target_container=container,
+        condition=UnlessCondition(LaunchConfiguration("use_separate_inference_processes")),
     )
 
     decompressor_loader = LoadComposableNodes(
@@ -179,7 +206,7 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
                 plugin="autoware::traffic_light::TrafficLightFineDetectorNode",
                 name="traffic_light_fine_detector",
                 namespace=f"{namespace}/detection",
-                parameters=[fine_detector_model_param],
+                parameters=fine_detector_parameters,
                 remappings=[
                     ("~/input/image", camera_arguments["input/image"]),
                     ("~/input/rois", "rough/rois"),
@@ -192,13 +219,83 @@ def create_traffic_light_node_container(namespace, context, *args, **kwargs):
             ),
         ],
         target_container=container,
-        condition=IfCondition(LaunchConfiguration("enable_fine_detection")),
+        condition=IfCondition(
+            PythonExpression(
+                [
+                    "'",
+                    LaunchConfiguration("enable_fine_detection"),
+                    "'.lower() == 'true' and '",
+                    LaunchConfiguration("use_separate_inference_processes"),
+                    "'.lower() != 'true'",
+                ]
+            )
+        ),
+    )
+
+    separate_car_classifier = Node(
+        package="autoware_traffic_light_classifier",
+        executable="traffic_light_classifier_node",
+        name="car_traffic_light_classifier",
+        namespace=f"{namespace}/classification",
+        parameters=car_classifier_parameters,
+        remappings=[
+            ("~/input/image", camera_arguments["input/image"]),
+            ("~/input/rois", camera_arguments["output/rois"]),
+            ("~/output/traffic_signals", "classified/car/traffic_signals"),
+        ],
+        output="both",
+        condition=IfCondition(LaunchConfiguration("use_separate_inference_processes")),
+    )
+
+    separate_pedestrian_classifier = Node(
+        package="autoware_traffic_light_classifier",
+        executable="traffic_light_classifier_node",
+        name="pedestrian_traffic_light_classifier",
+        namespace=f"{namespace}/classification",
+        parameters=pedestrian_classifier_parameters,
+        remappings=[
+            ("~/input/image", camera_arguments["input/image"]),
+            ("~/input/rois", camera_arguments["output/rois"]),
+            ("~/output/traffic_signals", "classified/pedestrian/traffic_signals"),
+        ],
+        output="both",
+        condition=IfCondition(LaunchConfiguration("use_separate_inference_processes")),
+    )
+
+    separate_fine_detector = Node(
+        package="autoware_traffic_light_fine_detector",
+        executable="traffic_light_fine_detector_node",
+        name="traffic_light_fine_detector",
+        namespace=f"{namespace}/detection",
+        parameters=fine_detector_parameters,
+        remappings=[
+            ("~/input/image", camera_arguments["input/image"]),
+            ("~/input/rois", "rough/rois"),
+            ("~/expect/rois", "expect/rois"),
+            ("~/output/rois", camera_arguments["output/rois"]),
+        ],
+        output="both",
+        condition=IfCondition(
+            PythonExpression(
+                [
+                    "'",
+                    LaunchConfiguration("enable_fine_detection"),
+                    "'.lower() == 'true' and '",
+                    LaunchConfiguration("use_separate_inference_processes"),
+                    "'.lower() == 'true'",
+                ]
+            )
+        ),
     )
 
     return [
         GroupAction([PushRosNamespace(namespace), container]),
+        classifier_loader,
         decompressor_loader,
         fine_detector_loader,
+        separate_car_classifier,
+        separate_pedestrian_classifier,
+        separate_fine_detector,
     ]
 
 
@@ -216,6 +313,8 @@ def generate_launch_description():
     add_launch_arg("all_camera_namespaces", "[camera6, camera7]")
     add_launch_arg("enable_image_decompressor", "True")
     add_launch_arg("enable_fine_detection", "True")
+    add_launch_arg("use_separate_inference_processes", "False")
+    add_launch_arg("use_hsv_classifier", "False")
     add_launch_arg("use_image_transport", "True")
 
     # traffic_light_fine_detector

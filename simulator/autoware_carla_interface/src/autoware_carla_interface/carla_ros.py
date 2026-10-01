@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.sr/bin/env python
 
+import copy
 import json
 import math
 import threading
@@ -34,6 +35,7 @@ from sensor_msgs.msg import Imu
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs.msg import PointField
 from std_msgs.msg import Header
+from tier4_localization_msgs.srv import InitializeLocalization
 from tier4_vehicle_msgs.msg import ActuationCommandStamped
 from tier4_vehicle_msgs.msg import ActuationStatusStamped
 from transforms3d.euler import euler2quat
@@ -66,7 +68,9 @@ class carla_ros2_interface(object):
             "camera": 11,
             "imu": 50,
             "status": 50,
-            "pose": 2,
+            # Feed CARLA ground-truth localization often enough that the EKF covariance does not
+            # grow past the localization safety thresholds between measurements.
+            "pose": 10,
         }
         self.publish_prev_times = {
             sensor: datetime.datetime.now() for sensor in self.sensor_frequencies
@@ -111,6 +115,10 @@ class carla_ros2_interface(object):
         self.sub_vehicle_initialpose = self.ros2_node.create_subscription(
             PoseWithCovarianceStamped, "initialpose", self.initialpose_callback, 1
         )
+        self.localization_initialize_client = self.ros2_node.create_client(
+            InitializeLocalization, "/localization/initialize"
+        )
+        self._initialpose_requested = None
 
         self.current_control = carla.VehicleControl()
 
@@ -249,7 +257,28 @@ class carla_ros2_interface(object):
         self.pub_lidar[id_].publish(point_cloud_msg)
 
     def initialpose_callback(self, data):
-        """Transform RVIZ initial pose to CARLA."""
+        """Apply an RViz initial pose to both CARLA and Autoware localization."""
+        requested_pose = data.pose.pose
+        if self._initialpose_requested == requested_pose:
+            # The localization service republishes the accepted pose on the same topic.
+            # Ignore that one echo to avoid recursively calling the service.
+            self._initialpose_requested = None
+            return
+
+        localization_pose = copy.deepcopy(data)
+        request = InitializeLocalization.Request()
+        request.method = InitializeLocalization.Request.DIRECT
+        request.pose_with_covariance = [localization_pose]
+
+        if self.localization_initialize_client.service_is_ready():
+            self._initialpose_requested = copy.deepcopy(localization_pose.pose.pose)
+            future = self.localization_initialize_client.call_async(request)
+            future.add_done_callback(self._initialpose_response_callback)
+        else:
+            self.ros2_node.get_logger().warning(
+                "/localization/initialize is not ready; CARLA moved but localization was not reset"
+            )
+
         pose = data.pose.pose
         pose.position.z += 2.0
         carla_pose_transform = ros_pose_to_carla_transform(pose)
@@ -257,6 +286,20 @@ class carla_ros2_interface(object):
             self.ego_actor.set_transform(carla_pose_transform)
         else:
             print("Can't find Ego Vehicle")
+
+    def _initialpose_response_callback(self, future):
+        try:
+            response = future.result()
+            if not response.status.success:
+                self._initialpose_requested = None
+                self.ros2_node.get_logger().error(
+                    f"Localization initialization failed: {response.status.message}"
+                )
+        except Exception as error:
+            self._initialpose_requested = None
+            self.ros2_node.get_logger().error(
+                f"Localization initialization service failed: {error}"
+            )
 
     def pose(self):
         """Transform odometry data to Pose and publish Pose with Covariance message."""
@@ -274,28 +317,21 @@ class carla_ros2_interface(object):
         out_pose_with_cov.header = header
         out_pose_with_cov.pose.pose = pose_carla
         out_pose_with_cov.pose.covariance = [
-            0.1,
+            0.01,
             0.0,
             0.0,
             0.0,
             0.0,
             0.0,
             0.0,
-            0.1,
+            0.01,
             0.0,
             0.0,
             0.0,
             0.0,
             0.0,
             0.0,
-            0.1,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            0.01,
             0.0,
             0.0,
             0.0,
@@ -310,6 +346,13 @@ class carla_ros2_interface(object):
             0.0,
             0.0,
             0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.01,
         ]
         self.pub_pose_with_cov.publish(out_pose_with_cov)
 
@@ -347,7 +390,7 @@ class carla_ros2_interface(object):
         # cspell:ignore interp bgra
         img_msg = self.cv_bridge.cv2_to_imgmsg(image_data_array, encoding="bgra8")
         img_msg.header = self.get_msg_header(
-            frame_id="traffic_light_left_camera/camera_optical_link"
+            frame_id="CAM_FRONT/camera_optical_link"
         )
         cam_info = self._camera_info
         cam_info.header = img_msg.header
@@ -429,9 +472,12 @@ class carla_ros2_interface(object):
         out_vel_state.header = self.get_msg_header(frame_id="base_link")
         out_vel_state.longitudinal_velocity = ego_velocity[0]
         out_vel_state.lateral_velocity = ego_velocity[1]
-        out_vel_state.heading_rate = (
+        # CARLA reports angular velocity in degrees per second in its left-handed
+        # coordinate system. VelocityReport expects radians per second in ROS coordinates.
+        carla_heading_rate = (
             self.ego_actor.get_transform().transform_vector(self.ego_actor.get_angular_velocity()).z
         )
+        out_vel_state.heading_rate = -math.radians(carla_heading_rate)
 
         out_steering_state.stamp = out_vel_state.header.stamp
         out_steering_state.steering_tire_angle = -math.radians(

@@ -13,6 +13,8 @@
     <arg name="use_traffic_manager" default="False"/>
     <arg name="max_real_delta_seconds" default="0.05"/>
     <arg name="input_initial_pose" default="/initialpose"/>
+    <arg name="output_camera_image_topic" default="/sensing/camera/traffic_light/image_raw"/>
+    <arg name="output_camera_info_topic" default="/sensing/camera/traffic_light/camera_info"/>
     <arg name="output_imu_topic" default="/sensing/imu/tamagawa/imu_raw"/>
 
     <!-- CARLA Interface -->
@@ -31,6 +33,8 @@
       <param name="max_real_delta_seconds" value="$(var max_real_delta_seconds)"/>
       <remap from="initialpose" to="$(var input_initial_pose)"/>
       <remap from="/sensing/imu/tamagawa/imu_raw" to="$(var output_imu_topic)"/>
+      <remap from="/sensing/camera/traffic_light/image_raw" to="$(var output_camera_image_topic)"/>
+      <remap from="/sensing/camera/traffic_light/camera_info" to="$(var output_camera_info_topic)"/>
     </node>
 
     <arg name="input_control_cmd" default="/control/command/control_cmd"/>

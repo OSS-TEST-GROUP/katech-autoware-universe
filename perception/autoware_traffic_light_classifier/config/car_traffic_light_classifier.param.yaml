@@ -9,3 +9,23 @@
     backlight_threshold: 0.85
     classifier_type: 1 #classifier_type {hsv_filter: 0, cnn: 1}
     classify_traffic_light_type: 0 #classify_traffic_light_type {car: 0, pedestrian:1}
+
+    # CARLA 0.9.15 rendered lamp colors (OpenCV HSV scale: H=0..179).
+    green_min_h: 40
+    green_max_h: 75
+    green_min_s: 80
+    green_max_s: 255
+    green_min_v: 100
+    green_max_v: 255
+    yellow_min_h: 20
+    yellow_max_h: 39
+    yellow_min_s: 80
+    yellow_max_s: 255
+    yellow_min_v: 100
+    yellow_max_v: 255
+    red_min_h: 0
+    red_max_h: 19
+    red_min_s: 80
+    red_max_s: 255
+    red_min_v: 100
+    red_max_v: 255

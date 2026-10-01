@@ -2,6 +2,10 @@
 <launch>
   <arg name="use_empty_dynamic_object_publisher" default="false" description="if true, /perception/object_recognition/objects topic has an empty DynamicObjectArray"/>
   <arg name="use_traffic_light_recognition" default="true" description="use traffic light recognition module, if false, traffic light recognition module will not be launched"/>
+  <arg name="traffic_light_recognition/enable_fine_detection" default="true"/>
+  <arg name="traffic_light_recognition/enable_image_decompressor" default="true"/>
+  <arg name="traffic_light_recognition/use_separate_inference_processes" default="false"/>
+  <arg name="traffic_light_recognition/use_hsv_classifier" default="false"/>
 
   <arg name="use_low_height_cropbox" default="false" description="use low height crop filter in clustering"/>
   <arg name="use_vector_map" default="true" description="use vector map in prediction"/>
@@ -49,6 +53,9 @@
 
     <arg name="use_traffic_light_recognition" value="$(var use_traffic_light_recognition)"/>
     <arg name="traffic_light_recognition/enable_fine_detection" value="$(var traffic_light_recognition/enable_fine_detection)"/>
+    <arg name="traffic_light_recognition/enable_image_decompressor" value="$(var traffic_light_recognition/enable_image_decompressor)"/>
+    <arg name="traffic_light_recognition/use_separate_inference_processes" value="$(var traffic_light_recognition/use_separate_inference_processes)"/>
+    <arg name="traffic_light_recognition/use_hsv_classifier" value="$(var traffic_light_recognition/use_hsv_classifier)"/>
     <arg name="traffic_light_recognition/fusion_only" value="false"/>
     <arg name="all_traffic_light_camera" value="$(var all_traffic_light_camera)"/>
 

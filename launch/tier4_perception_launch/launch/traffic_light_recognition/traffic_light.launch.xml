@@ -2,6 +2,8 @@
 <launch>
   <arg name="enable_image_decompressor" default="true" description="enable image decompressor"/>
   <arg name="enable_fine_detection" default="true" description="enable fine position adjustment of traffic light"/>
+  <arg name="use_separate_inference_processes" default="false" description="run GPU detector and classifiers in separate processes"/>
+  <arg name="use_hsv_classifier" default="false" description="use the non-TensorRT HSV traffic-light classifier"/>
   <arg name="fusion_only" default="false" description="launch only occlusion_predictor and multi_camera_fusion"/>
   <arg name="input/cloud" default="/sensing/lidar/top/pointcloud_raw_ex" description="point cloud for occlusion prediction"/>
   <arg name="judged/traffic_signals" default="/perception/traffic_light_recognition/judged/traffic_signals"/>
@@ -38,6 +40,8 @@
       <arg name="all_camera_namespaces" value="$(var all_camera_namespaces)"/>
       <arg name="enable_image_decompressor" value="$(var enable_image_decompressor)"/>
       <arg name="enable_fine_detection" value="$(var enable_fine_detection)"/>
+      <arg name="use_separate_inference_processes" value="$(var use_separate_inference_processes)"/>
+      <arg name="use_hsv_classifier" value="$(var use_hsv_classifier)"/>
       <arg name="use_intra_process" value="true"/>
       <arg name="use_multithread" value="true"/>
       <arg name="fine_detector_param_path" value="$(var fine_detector_param_path)"/>

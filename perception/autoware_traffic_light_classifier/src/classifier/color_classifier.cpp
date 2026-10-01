@@ -46,6 +46,19 @@ ColorClassifier::ColorClassifier(rclcpp::Node * node_ptr) : node_ptr_(node_ptr)
   hsv_config_.red_max_s = node_ptr_->declare_parameter("red_max_s", 255);
   hsv_config_.red_max_v = node_ptr_->declare_parameter("red_max_v", 255);
 
+  // Parameters supplied at node construction do not invoke the dynamic parameter callback.
+  // Initialize the OpenCV thresholds here so the first image uses the configured values.
+  min_hsv_green_ =
+    cv::Scalar(hsv_config_.green_min_h, hsv_config_.green_min_s, hsv_config_.green_min_v);
+  max_hsv_green_ =
+    cv::Scalar(hsv_config_.green_max_h, hsv_config_.green_max_s, hsv_config_.green_max_v);
+  min_hsv_yellow_ =
+    cv::Scalar(hsv_config_.yellow_min_h, hsv_config_.yellow_min_s, hsv_config_.yellow_min_v);
+  max_hsv_yellow_ =
+    cv::Scalar(hsv_config_.yellow_max_h, hsv_config_.yellow_max_s, hsv_config_.yellow_max_v);
+  min_hsv_red_ = cv::Scalar(hsv_config_.red_min_h, hsv_config_.red_min_s, hsv_config_.red_min_v);
+  max_hsv_red_ = cv::Scalar(hsv_config_.red_max_h, hsv_config_.red_max_s, hsv_config_.red_max_v);
+
   // set parameter callback
   set_param_res_ = node_ptr_->add_on_set_parameters_callback(
     std::bind(&ColorClassifier::parametersCallback, this, _1));
@@ -168,16 +181,22 @@ bool ColorClassifier::getTrafficSignals(
     if (yellow_ratio < green_ratio && red_ratio < green_ratio) {
       tier4_perception_msgs::msg::TrafficLightElement element;
       element.color = tier4_perception_msgs::msg::TrafficLightElement::GREEN;
+      element.shape = tier4_perception_msgs::msg::TrafficLightElement::CIRCLE;
+      element.status = tier4_perception_msgs::msg::TrafficLightElement::SOLID_ON;
       element.confidence = std::min(1.0, static_cast<double>(green_pixel_num) / (20.0 * 20.0));
       traffic_signal.elements.push_back(element);
     } else if (green_ratio < yellow_ratio && red_ratio < yellow_ratio) {
       tier4_perception_msgs::msg::TrafficLightElement element;
       element.color = tier4_perception_msgs::msg::TrafficLightElement::AMBER;
+      element.shape = tier4_perception_msgs::msg::TrafficLightElement::CIRCLE;
+      element.status = tier4_perception_msgs::msg::TrafficLightElement::SOLID_ON;
       element.confidence = std::min(1.0, static_cast<double>(yellow_pixel_num) / (20.0 * 20.0));
       traffic_signal.elements.push_back(element);
     } else if (green_ratio < red_ratio && yellow_ratio < red_ratio) {
       tier4_perception_msgs::msg::TrafficLightElement element;
       element.color = ::tier4_perception_msgs::msg::TrafficLightElement::RED;
+      element.shape = tier4_perception_msgs::msg::TrafficLightElement::CIRCLE;
+      element.status = tier4_perception_msgs::msg::TrafficLightElement::SOLID_ON;
       element.confidence = std::min(1.0, static_cast<double>(red_pixel_num) / (20.0 * 20.0));
       traffic_signal.elements.push_back(element);
     } else {

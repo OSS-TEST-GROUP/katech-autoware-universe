@@ -24,3 +24,10 @@
       use_height_threshold: false
       max_height_threshold: 10.0 # [m] from the base_link height in map frame
       min_height_threshold: -1.0 # [m] from the base_link height in map frame
+      # Ignore only tiny, stationary UNKNOWN clusters such as Town01 traffic-light poles.
+      # Vehicle- and pedestrian-sized UNKNOWN objects remain valid obstacles.
+      tiny_unknown_filter:
+        enabled: true
+        max_footprint_short_side: 0.30 # [m]
+        max_footprint_long_side: 0.45 # [m]
+        max_speed: 0.3 # [m/s]
