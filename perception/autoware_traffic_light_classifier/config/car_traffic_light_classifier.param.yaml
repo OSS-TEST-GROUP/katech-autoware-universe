@@ -15,17 +15,17 @@
     green_max_h: 75
     green_min_s: 80
     green_max_s: 255
-    green_min_v: 100
+    green_min_v: 150
     green_max_v: 255
     yellow_min_h: 20
     yellow_max_h: 39
     yellow_min_s: 80
     yellow_max_s: 255
-    yellow_min_v: 100
+    yellow_min_v: 150
     yellow_max_v: 255
     red_min_h: 0
     red_max_h: 19
     red_min_s: 80
     red_max_s: 255
-    red_min_v: 100
+    red_min_v: 150
     red_max_v: 255

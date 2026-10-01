@@ -65,13 +65,10 @@ TrafficLightClassifierNodelet::TrafficLightClassifierNodelet(const rclcpp::NodeO
 
 void TrafficLightClassifierNodelet::connectCb()
 {
-  // set callbacks only when there are subscribers to this node
-  if (
-    traffic_signal_array_pub_->get_subscription_count() == 0 &&
-    traffic_signal_array_pub_->get_intra_process_subscription_count() == 0) {
-    image_sub_.unsubscribe();
-    roi_sub_.unsubscribe();
-  } else if (!image_sub_.getSubscriber()) {
+  // Keep the synchronized inputs connected for the lifetime of the node. Repeatedly tearing down
+  // and rebuilding message_filters subscriptions when downstream nodes reconnect can leave the
+  // image/ROI queues out of step, causing this node to remain silent even after subscribers return.
+  if (!image_sub_.getSubscriber()) {
     image_sub_.subscribe(this, "~/input/image", "raw", rmw_qos_profile_sensor_data);
     roi_sub_.subscribe(this, "~/input/rois", rclcpp::QoS{1}.get_rmw_qos_profile());
   }
