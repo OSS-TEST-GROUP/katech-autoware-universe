@@ -17,6 +17,9 @@ import json
 import math
 import threading
 
+from autoware_perception_msgs.msg import TrafficLightElement
+from autoware_perception_msgs.msg import TrafficLightGroup
+from autoware_perception_msgs.msg import TrafficLightGroupArray
 from autoware_vehicle_msgs.msg import ControlModeReport
 from autoware_vehicle_msgs.msg import GearReport
 from autoware_vehicle_msgs.msg import SteeringReport
@@ -60,6 +63,7 @@ class carla_ros2_interface(object):
         self.id_to_camera_info_map = {}
         self.cv_bridge = CvBridge()
         self.first_ = True
+        self.traffic_light_actors = None
         self.pub_lidar = {}
         self.sensor_frequencies = {
             "top": 11,
@@ -92,6 +96,7 @@ class carla_ros2_interface(object):
             "objects_definition_file": rclpy.Parameter.Type.STRING,
             "use_traffic_manager": rclpy.Parameter.Type.BOOL,
             "max_real_delta_seconds": rclpy.Parameter.Type.DOUBLE,
+            "publish_ground_truth_traffic_lights": rclpy.Parameter.Type.BOOL,
         }
         self.param_values = {}
         for param_name, param_type in self.parameters.items():
@@ -140,6 +145,11 @@ class carla_ros2_interface(object):
         )
         self.pub_actuation_status = self.ros2_node.create_publisher(
             ActuationStatusStamped, "/vehicle/status/actuation_status", 1
+        )
+        self.pub_ground_truth_traffic_lights = self.ros2_node.create_publisher(
+            TrafficLightGroupArray,
+            "/perception/traffic_light_recognition/external/traffic_signals",
+            1,
         )
 
         # Create Publisher for each Physical Sensors
@@ -502,6 +512,52 @@ class carla_ros2_interface(object):
         self.pub_ctrl_mode.publish(out_ctrl_mode)
         self.pub_gear_state.publish(out_gear_state)
 
+    def ground_truth_traffic_lights(self):
+        """Publish CARLA traffic-light states using the Town01 Lanelet ID convention."""
+        if not self.param_values["publish_ground_truth_traffic_lights"]:
+            return
+        if self.ego_actor is None:
+            return
+
+        if self.traffic_light_actors is None:
+            world = self.ego_actor.get_world()
+            self.traffic_light_actors = list(
+                world.get_actors().filter("traffic.traffic_light*")
+            )
+            self.ros2_node.get_logger().info(
+                f"Publishing CARLA GT states for {len(self.traffic_light_actors)} traffic lights"
+            )
+
+        color_by_state = {
+            carla.TrafficLightState.Red: TrafficLightElement.RED,
+            carla.TrafficLightState.Yellow: TrafficLightElement.AMBER,
+            carla.TrafficLightState.Green: TrafficLightElement.GREEN,
+            carla.TrafficLightState.Off: TrafficLightElement.UNKNOWN,
+            carla.TrafficLightState.Unknown: TrafficLightElement.UNKNOWN,
+        }
+        groups = {}
+        for actor in self.traffic_light_actors:
+            try:
+                opendrive_id = int(actor.get_opendrive_id())
+                state = actor.get_state()
+            except (RuntimeError, TypeError, ValueError):
+                continue
+
+            group = TrafficLightGroup()
+            group.traffic_light_group_id = 900000000 + opendrive_id * 1000 + 20
+            element = TrafficLightElement()
+            element.color = color_by_state.get(state, TrafficLightElement.UNKNOWN)
+            element.shape = TrafficLightElement.CIRCLE
+            element.status = TrafficLightElement.SOLID_ON
+            element.confidence = 1.0
+            group.elements = [element]
+            groups[group.traffic_light_group_id] = group
+
+        msg = TrafficLightGroupArray()
+        msg.stamp = self.get_msg_header(frame_id="").stamp
+        msg.traffic_light_groups = list(groups.values())
+        self.pub_ground_truth_traffic_lights.publish(msg)
+
     def run_step(self, input_data, timestamp):
         self.timestamp = timestamp
         seconds = int(self.timestamp)
@@ -526,6 +582,7 @@ class carla_ros2_interface(object):
 
         # Publish ego vehicle status
         self.ego_status()
+        self.ground_truth_traffic_lights()
         return self.current_control
 
     def shutdown(self):

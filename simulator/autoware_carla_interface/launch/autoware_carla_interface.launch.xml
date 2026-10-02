@@ -12,6 +12,7 @@
     <arg name="objects_definition_file" default="$(find-pkg-share autoware_carla_interface)/objects.json"/>
     <arg name="use_traffic_manager" default="False"/>
     <arg name="max_real_delta_seconds" default="0.05"/>
+    <arg name="publish_ground_truth_traffic_lights" default="False"/>
     <arg name="input_initial_pose" default="/initialpose"/>
     <arg name="output_camera_image_topic" default="/sensing/camera/traffic_light/image_raw"/>
     <arg name="output_camera_info_topic" default="/sensing/camera/traffic_light/camera_info"/>
@@ -31,6 +32,7 @@
       <param name="objects_definition_file" value="$(var objects_definition_file)"/>
       <param name="use_traffic_manager" value="$(var use_traffic_manager)"/>
       <param name="max_real_delta_seconds" value="$(var max_real_delta_seconds)"/>
+      <param name="publish_ground_truth_traffic_lights" value="$(var publish_ground_truth_traffic_lights)"/>
       <remap from="initialpose" to="$(var input_initial_pose)"/>
       <remap from="/sensing/imu/tamagawa/imu_raw" to="$(var output_imu_topic)"/>
       <remap from="/sensing/camera/traffic_light/image_raw" to="$(var output_camera_image_topic)"/>
