@@ -12,6 +12,7 @@
     <arg name="data_path" value="$(var data_path)"/>
     <arg name="is_launch_autoware" value="true"/>
     <arg name="launch_file" value="adsw_decision.launch.xml"/>
+    <arg name="launch_system" value="false"/>
     <arg name="is_launch_simulator" value="false"/>
     <arg name="system_run_mode" value="planning_simulation"/>
     <arg name="launch_system_monitor" value="false"/>

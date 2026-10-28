@@ -78,6 +78,11 @@
     </include>
   </group>
 
+  <!-- System: one instance for all partitions. -->
+  <group if="$(var launch_system)">
+    <include file="$(find-pkg-share obigo_launch)/launch/components/tier4_system_component.launch.xml"/>
+  </group>
+
 
 
   <!-- Control -->

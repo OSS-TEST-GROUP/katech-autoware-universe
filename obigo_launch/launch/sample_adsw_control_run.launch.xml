@@ -12,6 +12,9 @@
     <arg name="data_path" value="$(var data_path)"/>
     <arg name="is_launch_autoware" value="true"/>
     <arg name="launch_file" value="adsw_control.launch.xml"/>
+    <arg name="launch_system" value="true"/>
+    <arg name="launch_system_monitor" value="false"/>
+    <arg name="launch_dummy_diag_publisher" value="true"/>
     <arg name="is_launch_simulator" value="true"/>
     <arg name="sim_launch_file" value="obigo_simulator_component.launch.xml"/>
     <arg name="launch_simulator_dummy_perception" value="false"/>
