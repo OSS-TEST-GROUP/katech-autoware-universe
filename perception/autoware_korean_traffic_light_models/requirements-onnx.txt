@@ -1,0 +1,4 @@
+# Opt-in CPU evaluation only; not an automatic Docker/production dependency.
+numpy==1.26.4
+Pillow==10.4.0
+onnxruntime==1.20.1
