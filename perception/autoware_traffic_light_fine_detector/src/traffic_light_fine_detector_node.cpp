@@ -75,7 +75,8 @@ TrafficLightFineDetectorNode::TrafficLightFineDetectorNode(const rclcpp::NodeOpt
     RCLCPP_ERROR(this->get_logger(), "Could not find tlr id");
   }
 
-  const bool cuda_preprocess = true;
+  // Preserve the default; candidate models can explicitly select CPU cubic preprocessing.
+  const bool cuda_preprocess = declare_parameter("cuda_preprocess", true);
   const std::string calib_image_list = "";
   const double scale = 1.0;
   const std::string cache_dir = "";

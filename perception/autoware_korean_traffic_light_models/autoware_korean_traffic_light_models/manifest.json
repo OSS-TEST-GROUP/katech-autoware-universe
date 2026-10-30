@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "repository": "OSS-TEST-GROUP/katech-autoware-sils",
+  "release_tag": "models-korean-tl-20261030",
+  "files": [
+    {
+      "kind": "detector",
+      "batch": 1,
+      "file": "korean_tl_yolox_s_pilot_batch_1.onnx",
+      "bytes": 35798407,
+      "sha256": "4a66122cc8c364ecc356ff651ddff808f986b6bafa3a109edb126adb4867c962",
+      "url": "https://github.com/OSS-TEST-GROUP/katech-autoware-sils/releases/download/models-korean-tl-20261030/korean_tl_yolox_s_pilot_batch_1.onnx"
+    },
+    {
+      "kind": "detector",
+      "batch": 6,
+      "file": "korean_tl_yolox_s_pilot_batch_6.onnx",
+      "bytes": 35869391,
+      "sha256": "4197987260520c57d301a5fddefd63abfa037965f8de2e7cb8b8ea833a03334e",
+      "url": "https://github.com/OSS-TEST-GROUP/katech-autoware-sils/releases/download/models-korean-tl-20261030/korean_tl_yolox_s_pilot_batch_6.onnx"
+    },
+    {
+      "kind": "classifier",
+      "batch": 1,
+      "file": "candidate_c_batch_1.onnx",
+      "bytes": 8900482,
+      "sha256": "47a3cf703e2bf0eb5a89a27ba928d89611897f7a63ad96ee8ade6270bdb3f30a",
+      "url": "https://github.com/OSS-TEST-GROUP/katech-autoware-sils/releases/download/models-korean-tl-20261030/candidate_c_batch_1.onnx"
+    },
+    {
+      "kind": "classifier",
+      "batch": 6,
+      "file": "candidate_c_batch_6.onnx",
+      "bytes": 8900482,
+      "sha256": "987c0a8d868ce11917481da2b2bf785609b549db6d41aed7d2d64e7220bd13d2",
+      "url": "https://github.com/OSS-TEST-GROUP/katech-autoware-sils/releases/download/models-korean-tl-20261030/candidate_c_batch_6.onnx"
+    }
+  ],
+  "public_distribution_authorized_by_owner": true,
+  "training_images_included": false,
+  "tensorrt_engines_included": false,
+  "detector": {
+    "architecture": "YOLOX-S",
+    "candidate": "scale_02",
+    "input": "float32 BGR NCHW [batch,3,416,416], range 0..255, cubic letterbox padding 114",
+    "output": "[batch,3549,8]; raw grid/stride coordinates; objectness then 3 class slots",
+    "slots": {
+      "0": "constant zero background adapter",
+      "1": "vehicle traffic light (legacy label: car)",
+      "2": "pedestrian traffic light (legacy label: pedestrian)"
+    },
+    "note": "Detects traffic-light housings, not cars/pedestrians. Decode grid and strides 8/16/32 before NMS."
+  },
+  "classifier": {
+    "architecture": "MobileNetV2",
+    "candidate": "C",
+    "input": "RGB -> PIL bicubic 70x20 -> float32 CHW /255; no ImageNet normalization",
+    "output": "6 softmax probabilities",
+    "labels": [
+      "red",
+      "yellow",
+      "green",
+      "greenleft",
+      "redleft",
+      "reject_crop"
+    ],
+    "confidence_threshold": 0.8,
+    "margin_threshold": 0.2
+  },
+  "scope": "Shared experimental models for opt-in evaluation. Release hosting in the SILS repository does not require CARLA. No HIL/real-car safety approval or new accuracy claim. GPU engines must be rebuilt and validated on the target machine."
+}
